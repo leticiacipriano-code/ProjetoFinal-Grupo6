@@ -1,0 +1,17 @@
+[project]
+name = "projetofinal-grupo6"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dbt-postgres>=1.10.0",
+    "dotenv>=0.9.9",
+    "great-expectations>=1.16.0",
+    "numpy>=2.4.4",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.2",
+    "psycopg2-binary>=2.9.11",
+    "sqlalchemy>=2.0.49",
+    "xlrd>=2.0.2",
+]

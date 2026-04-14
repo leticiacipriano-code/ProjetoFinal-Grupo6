@@ -1,6 +1,20 @@
 version: "3.8"
 
 services:
+
+  app:
+    image: pipeline_elt_glow
+    build: .
+    container_name: g6
+    command: uv run main.py
+    volumes:
+      - ./gx_docs:/app/gx
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database_network
+
   postgres:
     image: postgres:15
     container_name: glow_postgres
@@ -19,6 +33,62 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - database_network
+      - metabase_network
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    restart: always
+    environment:
+      MB_DB_FILE: /metabase-data/metabase
+    volumes:
+      - ./frontend/metabase_data:/metabase-data
+    ports:
+      - "3000:3000"
+    networks:
+      - metabase_network
+
+  web-service:
+    image: nginx:alpine
+    container_name: static_gx
+    volumes:
+      - ./gx_docs/gx/uncommitted/data_docs/local_site:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+  
+  elt-transformation:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
+    container_name: dbt
+    working_dir: /usr/app/dbt_project
+    entrypoint: /bin/sh -c "sleep infinity"
+    env_file: .env
+    volumes:
+      - ./glow_dbt:/usr/app/dbt_project
+      - ./profiles:/root/.dbt
+    depends_on:
+      - postgres
+    networks:
+      - database_network
+
+  dbt-docs:
+    image: nginx:alpine
+    container_name: static_dbt
+    volumes:
+      - ./glow_dbt/target:/usr/share/nginx/html:ro
+    ports:
+      - "8181:80"
 
 volumes:
   postgres_data:
+    name: "postgres_data"
+    labels:
+      description: "Volume persistente para PostgreSQL"
+
+networks:
+  database_network:
+    driver: bridge
+  metabase_network:
+    driver: bridge
