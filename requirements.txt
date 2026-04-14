@@ -1,0 +1,21 @@
+# Ingestão e manipulação de dados
+pandas==2.2.2
+xlrd==2.0.1
+openpyxl==3.1.5
+numpy==1.26.4
+
+# Banco de dados
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# Variáveis de ambiente
+python-dotenv==1.0.1
+
+# Great Expectations (qualidade de dados - camada Raw)
+great_expectations==0.18.19
+
+# dbt (transformações Silver/Gold)
+dbt-postgres==1.8.7
+
+# Airflow (orquestração) - instalar separado via pip ou Docker
+# apache-airflow==2.9.3
