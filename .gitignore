@@ -1,0 +1,36 @@
+# Variáveis de ambiente (nunca commitar!)
+.env
+
+# Logs gerados pela ingestão
+bronze/*.log
+silver/*.log
+gold/*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# dbt
+dbt_packages/
+logs/
+target/
+
+# Great Expectations
+great_expectations/uncommitted/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
