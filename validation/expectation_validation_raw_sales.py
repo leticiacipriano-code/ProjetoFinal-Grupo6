@@ -1,6 +1,9 @@
 from datetime import date
 import great_expectations as gx
-from validation.gx_config import create_gx_expectationSuite
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def generate_validation_raw_sales(batch, expectations):
@@ -9,7 +12,7 @@ def generate_validation_raw_sales(batch, expectations):
 
     # --- 1. Coluna 'Boxes Shipped' deve ser do tipo inteiro
     expectations.add_expectation(
-        gx.expectations.ExpectColumnValuesToBeOfType(column="boxes_shipped", type_=int)
+        gx.expectations.ExpectColumnValuesToBeOfType(column="boxes_shipped", type_="INTEGER")
     )
 
     # --- 2. Coluna 'Price' deve ser positiva
@@ -17,6 +20,8 @@ def generate_validation_raw_sales(batch, expectations):
         gx.expectations.ExpectColumnMaxToBeBetween(column="date", max_value=date.today())
     )
 
+    logger.info("=" * 60)
+    logger.info(f"Definição do set de Expectations para sales_data - {expectations}")
 
     # 5. Validação e Checkpoint
     validation_def = gx.ValidationDefinition(
@@ -26,3 +31,7 @@ def generate_validation_raw_sales(batch, expectations):
     )
 
     return validation_def
+
+
+if __name__ == "__main__":
+    generate_validation_raw_sales()

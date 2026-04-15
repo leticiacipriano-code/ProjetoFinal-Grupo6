@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
 
   app:
@@ -8,7 +6,7 @@ services:
     container_name: g6
     command: uv run main.py
     volumes:
-      - ./gx_docs:/app/gx
+      - gx_docs:/app/gx_docs
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,7 +53,7 @@ services:
     image: nginx:alpine
     container_name: static_gx
     volumes:
-      - ./gx_docs/gx/uncommitted/data_docs/local_site:/usr/share/nginx/html:ro
+      - gx_docs:/usr/share/nginx/html:ro
     ports:
       - "8080:80"
   
@@ -86,6 +84,11 @@ volumes:
     name: "postgres_data"
     labels:
       description: "Volume persistente para PostgreSQL"
+
+  gx_docs:
+    name: "gx_docs"
+    labels:
+      description: "Volume nomeado a ser compartilhado entre app (g6) e static_gx"
 
 networks:
   database_network:

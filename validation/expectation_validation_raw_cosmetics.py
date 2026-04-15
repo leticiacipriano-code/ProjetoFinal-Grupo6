@@ -1,5 +1,8 @@
 import great_expectations as gx
-from validation.gx_config import create_gx_expectationSuite
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def generate_validation_raw_cosmetics(batch, expectations):
@@ -22,6 +25,9 @@ def generate_validation_raw_cosmetics(batch, expectations):
             gx.expectations.ExpectColumnToExist(column=col)
         )
 
+    logger.info("=" * 60)
+    logger.info(f"Definição do set de Expectations para cosmetics_products - {expectations}")
+
     # 5. Validação e Checkpoint
     validation_def = gx.ValidationDefinition(
         data=batch,
@@ -30,3 +36,7 @@ def generate_validation_raw_cosmetics(batch, expectations):
     )
 
     return validation_def
+
+
+if __name__ == "__main__":
+    generate_validation_raw_cosmetics()
