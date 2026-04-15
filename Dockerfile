@@ -11,6 +11,9 @@ WORKDIR /app
 # Copy the project into the image
 COPY . .
 
+# Guarantees permissions
+RUN chmod +x ./entrypoint.sh
+
 # Disable development dependencies
 ENV UV_NO_DEV=1
 
@@ -19,4 +22,4 @@ RUN uv --version
 RUN uv sync --locked
 
 # Presuming there is a `my_app` command provided by the project
-CMD ["uv", "run", "main.py"]
+ENTRYPOINT [ "./entrypoint.sh" ]

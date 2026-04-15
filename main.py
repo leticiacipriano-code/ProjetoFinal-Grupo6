@@ -1,10 +1,11 @@
-import logging
 from dotenv import load_dotenv
+import logging
+import sys
 
 # 1. Carregar as variáveis de ambiente
 load_dotenv()
 
-from bronze.ingest import run_ingestion
+from bronze.ingest import get_engine, wait_for_table, run_ingestion
 from validation.gx_run import run_gx_validation
 
 
@@ -21,9 +22,20 @@ def main():
     try:
         logger.info("Iniciando Pipeline Glow & Co.")
 
+        # Conexão
+        try:
+            engine = get_engine()
+        except Exception as exc:
+            logger.critical(f"Não foi possível conectar ao banco: {exc}")
+            sys.exit(1)
+
         # 1. Bronze Layer (EL)
         logger.info("Etapa 1: Ingestão de dados (Bronze)")
-        run_ingestion()
+        loaded_tables = run_ingestion(engine)
+
+        # Espera o Container ser populado com as tabelas antes do gx ser chamado.
+        for table in loaded_tables:
+            wait_for_table(engine, table)
 
         # Passo 2: Qualidade (Great Expectations)
         logger.info("Etapa 2: Validação de Qualidade (GX)...")

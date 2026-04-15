@@ -16,15 +16,16 @@ Variáveis de ambiente (via .env):
 =============================================================
 """
 
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+from pathlib import Path
+from sqlalchemy import create_engine, text
 import logging
 import os
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
-
 import pandas as pd
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+import time
+
 
 # ─────────────────────────────────────────────
 # 1. Configuração de Logging
@@ -268,11 +269,40 @@ def ensure_ingestion_log(engine):
     logger.info("Tabela raw._ingestion_log verificada/criada.")
 
 
+def wait_for_table(engine, table_name, schema="raw", timeout=60):
+    """Espera a criação da tabela no container do Postgres para que os outros serviços possam encontrá-las lá."""
+    start = time.time()
+
+    while True:
+        
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        f"""
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = '{schema}'
+                    AND table_name = '{table_name}'
+                    """))
+                if result.fetchone():
+                    print(f"Table {schema}.{table_name} is ready!")
+                    return
+        
+        except Exception as e:
+            print(f"Waiting for table... ({e})")
+
+        if time.time() - start > timeout:
+            raise TimeoutError(f"Timeout waiting for table {schema}.{table_name}")
+
+        time.sleep(2)
+
+
 # ─────────────────────────────────────────────
 # 6. Orquestração principal
 # ─────────────────────────────────────────────
 
-def run_ingestion():
+def run_ingestion(engine=None):
     """
     Executa o pipeline EL completo:
       1. Conecta ao PostgreSQL
@@ -289,15 +319,14 @@ def run_ingestion():
     start_time = datetime.now()
     summary = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Conexão
-    try:
+    # Se a engine não for passada - criar
+    if engine is None:
         engine = get_engine()
-    except Exception as exc:
-        logger.critical(f"Não foi possível conectar ao banco: {exc}")
-        sys.exit(1)
 
     ensure_raw_schema(engine)
     ensure_ingestion_log(engine)
+
+    loaded_tables = []
 
     # ── Itera sobre o catálogo de fontes ──
     for source in SOURCE_CATALOG:
@@ -316,6 +345,7 @@ def run_ingestion():
             df = normalize_columns(df)
             df = add_metadata(df, source["file"])
             rows = load_to_postgres(df, source["table"], engine)
+            loaded_tables.append(source["table"])
 
             logger.info(f"  ✓ Carregadas {rows:,} linhas em raw.{source['table']}")
             log_ingestion(engine, source["table"], source["file"], rows, "SUCCESS")
@@ -351,6 +381,8 @@ def run_ingestion():
 
     if summary["failed"] > 0:
         sys.exit(1)
+    else:
+        return loaded_tables
 
 
 if __name__ == "__main__":
