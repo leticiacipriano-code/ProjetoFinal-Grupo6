@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 load_dotenv()
 
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "glow")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "glow1234")

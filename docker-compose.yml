@@ -1,11 +1,10 @@
-version: "3.8"
-
 services:
 
   app:
     image: pipeline_elt_glow
     build: .
     container_name: g6
+    env_file: .env
     command: uv run main.py
     volumes:
       - ./gx_docs:/app/gx
