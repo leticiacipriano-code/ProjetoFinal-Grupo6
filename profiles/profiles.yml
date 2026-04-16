@@ -1,4 +1,4 @@
-group6_project:
+glow_dbt:
   outputs:
     dev:
       dbname: "{{ env_var('POSTGRES_DB') }}"
