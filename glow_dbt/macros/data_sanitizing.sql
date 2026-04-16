@@ -3,7 +3,7 @@
     -- 2. Remove aspas simples: '
     -- 3. O resultado final será apenas
     regexp_replace(
-        regex_replace({{ column }}, '[\[\]''*.]', '', 'g'),
+        regexp_replace({{ column }}, '[\[\]''*.]', '', 'g'),
         ',\s*', ',', 'g'
     )
 {% endmacro %}
