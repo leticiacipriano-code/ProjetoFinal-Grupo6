@@ -17,6 +17,19 @@ final_skc AS (
         sanitized_skc
     WHERE 
         ingredients_skc_list ~ '^[^,]+,.*'
-) 
+),
 
-SELECT * FROM final_skc
+mapping AS (
+
+    SELECT * 
+    FROM {{ref('brand_mapping')}}
+
+)
+
+SELECT
+    skc.*,
+    coalesce(m.brand, 'unknown') as brand
+FROM sanitized_skc AS skc
+LEFT JOIN mapping AS m
+ON
+    lower(skc.product_name) LIKE '%' || m.pattern || '%'
