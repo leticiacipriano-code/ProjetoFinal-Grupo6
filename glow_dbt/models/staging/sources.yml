@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: staging_raw_sources
+    database: glow_db  # Database do Postgres
+    schema: raw
+    description: "Camada Bronze contendo dados injetados via Python"
+
+    tables:
+      - name: cosmetics_products
+        description: "Produtos cosméticos com ingredientes, preço e ranking por tipo de pele"
+        columns:
+          
+          - name: label
+            description: "Tipo de produto"
+            tests:
+              - not_null
+      
+      - name: skincare_products
+        description: "Produtos de skincare com lista de ingredientes limpa e preço em GBP"
+        columns:
+        
+          - name: product_type
+            description: "Tipo de produto"
+            tests:
+              - not_null
+      
+      - name: sales_data
+        description: "Dados de vendas de 2022: produto, país, vendedor, valor e caixas"
