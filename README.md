@@ -37,6 +37,12 @@ https://www.kaggle.com/datasets/atharvasoundankar/cosmetics-and-skincare-product
 https://www.kaggle.com/datasets/kingabzpro/cosmetics-datasets
 
 
+5. Acesso via Localhost
+- Great Expectatios: http://localhost:8080/gx/uncommitted/data_docs/local_site/
+- DBT_docs: http://localhost:8181
+- Metabase: http://localhost:3000
+
+
 5. Checklist de Auto-Avaliação para o Grupo 
 • O storytelling descreve claramente o domínio e as perguntas de negócio. 
 • O Airbyte/Script python carrega os dados para raw sem erros. 
