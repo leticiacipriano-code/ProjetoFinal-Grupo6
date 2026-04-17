@@ -22,4 +22,5 @@ RUN uv --version
 RUN uv sync --locked
 
 # Presuming there is a `my_app` command provided by the project
+RUN sed -i 's/\r$//' entrypoint.sh
 ENTRYPOINT [ "./entrypoint.sh" ]

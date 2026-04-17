@@ -43,10 +43,10 @@ type_mapping AS (
 
 SELECT
     bmap.*,
-    coalesce(tmap.standardized, lower(bmap.product_type)) AS product_type_mapped
+    coalesce(lower(tmap.standardized), lower(bmap.product_type)) AS product_type_mapped
 FROM
     brand_mapped AS bmap
 LEFT JOIN
     type_mapping AS tmap
 ON
-    lower(bmap.product_type) = tmap.raw_value
+    lower(bmap.product_type) = lower(tmap.raw_value)
