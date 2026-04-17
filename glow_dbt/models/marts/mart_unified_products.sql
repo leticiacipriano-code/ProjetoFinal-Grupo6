@@ -1,30 +1,35 @@
+with cosmetics_enriched AS (
+    SELECT * FROM {{ ref('int_cosmetics_enrichment')}}
+),
 
-SELECT 
+skincare_enrichment AS (
+    SELECT * FROM {{ ref('int_skincare_enrichment') }}
+)
+
+SELECT
     product_name,
     brand,
-    product_type_mapped AS product_type,
-    ingredients_skc_list AS ingredients,
-    price_numeric AS price,
-    null AS rank,
-    null AS dry,
-    null AS oily,
-    null AS sensitive,
-    'skincare' AS source
-FROM {{ ref('stg_skincare_products') }}
+    product_type,
+    ingredients_list,
+    price,
+    rank::text,
+    dry::text,
+    oily::text,
+    sensitive::text,
+    source
+FROM cosmetics_enriched
 
 UNION ALL
 
 SELECT
-    name AS product_name,
+    product_name,
     brand,
-    label AS product_type,
+    product_type,
     ingredients_list,
     price,
-    rank,
-    dry,
-    oily,
-    sensitive,
-    'cosmetics' AS source
-FROM {{ ref('stg_cosmetics_products') }}
-
-
+    rank::text,
+    dry::text,
+    oily::text,
+    sensitive::text,
+    source
+FROM skincare_enrichment
