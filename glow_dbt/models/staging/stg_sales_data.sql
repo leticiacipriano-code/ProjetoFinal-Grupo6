@@ -6,8 +6,7 @@ SELECT
     sales_person,
     country,
     product,
-    date,
-    EXTRACT(year FROM date::date) AS sale_year,
+    date::text,
     amount AS price,
     boxes_shipped
 

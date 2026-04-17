@@ -18,35 +18,6 @@ final_skc AS (
         sanitized_skc
     WHERE 
         ingredients_skc_list ~ '^[^,]+,.*'
-),
-
-mapping AS (
-    SELECT * 
-    FROM {{ref('brand_mapping')}}
-),
-
-brand_mapped AS (
-    SELECT
-        skc.*,
-        coalesce(m.brand, 'unknown') as brand
-    FROM sanitized_skc AS skc
-    LEFT JOIN mapping AS m
-    ON
-        lower(skc.product_name) LIKE '%' || m.pattern || '%'
-
-),
-
-type_mapping AS (
-    SELECT *
-    FROM {{ ref('product_type_mapping') }}
 )
 
-SELECT
-    bmap.*,
-    coalesce(lower(tmap.standardized), lower(bmap.product_type)) AS product_type_mapped
-FROM
-    brand_mapped AS bmap
-LEFT JOIN
-    type_mapping AS tmap
-ON
-    lower(bmap.product_type) = lower(tmap.raw_value)
+SELECT * FROM final_skc

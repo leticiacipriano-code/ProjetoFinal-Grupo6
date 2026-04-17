@@ -1,7 +1,7 @@
 SELECT
     country,
     product,
-    sale_year,
+    date,
     price,
     boxes_shipped
 

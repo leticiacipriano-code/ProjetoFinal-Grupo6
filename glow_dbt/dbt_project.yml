@@ -40,8 +40,14 @@ models:
     staging:
       +materialized: view
       +schema: staging
+    
+    # 2. Camada Intermediate
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+      +tags: ["silver", "transformed"]
 
-    # 2. Camada Gold
+    # 3. Camada Gold
     marts:
       +materialized: table
       +schema: marts
