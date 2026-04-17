@@ -10,7 +10,9 @@ sanitized AS (
         price,
         rank,
         {{ normalize_list_string('ingredients') }} AS ingredients_list,
+        Combination,
         dry,
+        Normal,
         oily,
         sensitive
     FROM source_data

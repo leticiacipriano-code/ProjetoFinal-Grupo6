@@ -7,7 +7,8 @@ sanitized_skc AS (
         product_name,
         product_type,
         {{ normalize_list_string('clean_ingreds') }} AS ingredients_skc_list,
-        {{ convert_price_to_numeric('price') }} AS price_numeric
+        {{ convert_price_to_numeric('price') }} AS price_numeric,
+        product_url
     FROM source_data
 ),
 
