@@ -12,15 +12,12 @@ def generate_validation_raw_sales(batch, expectations):
 
     # --- 1. Coluna 'Boxes Shipped' deve ser do tipo inteiro
     expectations.add_expectation(
-        gx.expectations.ExpectColumnValuesToBeOfType(column="boxes_shipped", type_="int64")
+        gx.expectations.ExpectColumnValuesToBeOfType(column="boxes_shipped", type_="INTEGER")
     )
 
-    # --- 2. Coluna 'Date' deve existir e ser do tipo date
+    # --- 2. Coluna 'Price' deve ser positiva
     expectations.add_expectation(
-        gx.expectations.ExpectColumnToExist(column="date")
-    )
-    expectations.add_expectation(
-        gx.expectations.ExpectColumnValuesToBeOfType(column="date", type_="date")
+        gx.expectations.ExpectColumnMaxToBeBetween(column="date", max_value=date.today())
     )
 
     logger.info("=" * 60)

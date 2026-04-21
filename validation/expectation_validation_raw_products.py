@@ -14,13 +14,9 @@ def generate_validation_raw_products(batch, expectations):
         gx.expectations.ExpectColumnValuesToBeOfType(column="clean_ingreds", type_="TEXT")
     )
 
-    # --- 2. Coluna 'price' deve conter o símbolo £ (com 95% de tolerância)
+    # --- 2. Coluna 'price' deve conter o símbolo £
     expectations.add_expectation(
-        gx.expectations.ExpectColumnValuesToMatchRegex(
-            column="price", 
-            regex=r"^£\d+(\.\d{1,2})?$",
-            mostly=0.95
-        )
+        gx.expectations.ExpectColumnValuesToMatchRegex(column="price", regex= r"^£\d+(\.\d{1,2})?$")
     )
 
     logger.info("=" * 60)
