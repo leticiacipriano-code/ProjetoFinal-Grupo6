@@ -1,0 +1,18 @@
+# Ignorar ambientes virtuais de qualquer lugar
+.venv/
+venv/
+.airflow/
+airflow/.airflow/
+
+# Ignorar arquivos de sistema e cache
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.dbf
+.DS_Store
+
+# Ignorar logs e bancos locais do Airflow
+airflow/*.db
+airflow/*.log

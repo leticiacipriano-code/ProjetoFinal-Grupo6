@@ -41,6 +41,8 @@ https://www.kaggle.com/datasets/kingabzpro/cosmetics-datasets
 - Great Expectatios: http://localhost:8080/gx/uncommitted/data_docs/local_site/
 - DBT_docs: http://localhost:8181
 - Metabase: http://localhost:3000
+- Airflow: Acesse http://localhost:8085 (User: admin | Senha: admin).
+
 
 
 5. Checklist de Auto-Avaliação para o Grupo 

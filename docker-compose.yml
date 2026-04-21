@@ -6,12 +6,14 @@ services:
     container_name: g6
     command: uv run main.py
     volumes:
-      - gx_docs:/app/gx_docs
+      - .:/app              
+      - ./gx_docs:/app/gx_docs
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - database_network
+
 
   postgres:
     image: postgres:15
@@ -36,6 +38,7 @@ services:
       - database_network
       - metabase_network
 
+
   metabase:
     image: metabase/metabase:latest
     container_name: metabase
@@ -49,14 +52,16 @@ services:
     networks:
       - metabase_network
 
+
   web-service:
     image: nginx:alpine
     container_name: static_gx
     volumes:
-      - gx_docs:/usr/share/nginx/html:ro
+      - ./gx_docs/uncommitted/data_docs/local_site:/usr/share/nginx/html:ro
     ports:
       - "8080:80"
-  
+
+
   elt-transformation:
     image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
     container_name: dbt
@@ -71,6 +76,7 @@ services:
     networks:
       - database_network
 
+
   dbt-docs:
     image: nginx:alpine
     container_name: static_dbt
@@ -78,18 +84,60 @@ services:
       - ./glow_dbt/target:/usr/share/nginx/html:ro
     ports:
       - "8181:80"
+  
 
+
+  airflow-common: &airflow-common
+    image: apache/airflow:2.8.1
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-glow}:${POSTGRES_PASSWORD:-glow1234}@glow_postgres/airflow_db
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-} 
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - _PIP_ADDITIONAL_DEPENDENCIES=apache-airflow-providers-great-expectations dbt-postgres
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+      - airflow_plugins:/opt/airflow/plugins
+      - ./glow_dbt:/usr/app/dbt_project
+      - ./profiles:/root/.dbt
+      - gx_docs:/app/gx_docs
+    user: "${AIRFLOW_UID:-5000}:0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database_network
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow_webserver
+    command: webserver
+    ports:
+      - "8085:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow_scheduler
+    command: scheduler
+
+# --- DECLARAÇÃO DE VOLUMES ---
 volumes:
   postgres_data:
     name: "postgres_data"
-    labels:
-      description: "Volume persistente para PostgreSQL"
-
   gx_docs:
     name: "gx_docs"
-    labels:
-      description: "Volume nomeado a ser compartilhado entre app (g6) e static_gx"
+  airflow_logs:
+    name: "airflow_logs"
+  airflow_plugins:
+    name: "airflow_plugins"
 
+# --- REDES ---
 networks:
   database_network:
     driver: bridge

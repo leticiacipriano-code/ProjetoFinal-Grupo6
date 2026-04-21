@@ -84,40 +84,7 @@ SOURCE_CATALOG = [
         "description": "Dados de vendas de 2022: produto, país, vendedor, valor e caixas",
         "read_kwargs": {"encoding": "utf-8"},
     },
-    {
-        "file": "COSING_Ingredients-Fragrance Inventory_v2.csv",
-        "table": "cosing_ingredients",
-        "description": "Inventário COSING de ingredientes e fragrâncias com funções e restrições",
-        "read_kwargs": {"encoding": "utf-8", "sep": ",", "on_bad_lines": "skip"},
-    },
-    {
-        "file": "COSING_Annex_II_v2.xls",
-        "table": "cosing_annex_ii",
-        "description": "COSING Annex II: substâncias proibidas em cosméticos na UE",
-        "read_kwargs": {},
-        "is_xls": True,
-    },
-    {
-        "file": "COSING_Annex_III_v2.xls",
-        "table": "cosing_annex_iii",
-        "description": "COSING Annex III: substâncias com restrições de uso",
-        "read_kwargs": {},
-        "is_xls": True,
-    },
-    {
-        "file": "COSING_Annex_IV_v2.xls",
-        "table": "cosing_annex_iv",
-        "description": "COSING Annex IV: corantes permitidos em cosméticos",
-        "read_kwargs": {},
-        "is_xls": True,
-    },
-    {
-        "file": "COSING_Annex_V_v2.xls",
-        "table": "cosing_annex_v",
-        "description": "COSING Annex V: conservantes permitidos em cosméticos",
-        "read_kwargs": {},
-        "is_xls": True,
-    },
+    
 ]
 
 # ─────────────────────────────────────────────

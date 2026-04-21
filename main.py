@@ -11,52 +11,56 @@ from bronze.ingest import get_engine, wait_for_table, run_ingestion
 from validation.gx_run import run_gx_validation
 from silver.silver import main as silver_main
 from gold.gold import main as gold_main
+from provisioning.metabase_setup import setup_metabase
 
-
-# Configuração de Logs para aparecer bonito no terminal da apresentação
+# Configuração de Logs
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("MAIN_PIPELINE")
 
-
-def run_dbt_run():
-    """Executa dbt run para transformar dados da camada intermediária."""
+def run_dbt_command(command_list, step_name):
+    """Função genérica para executar comandos dbt usando o caminho fixo do Docker."""
     try:
-        logger.info("=" * 80)
-        logger.info("Etapa 3: Transformações dbt (Intermediate & Marts)")
-        logger.info("=" * 80)
+        logger.info("-" * 40)
+        logger.info(f"Executando: {step_name}")
+        logger.info("-" * 40)
         
-        # Muda para o diretório de dbt
-        dbt_path = Path("glow_dbt")
-        if not dbt_path.exists():
-            logger.warning(f"Diretório dbt não encontrado em {dbt_path}")
+        # No Docker, a raiz é sempre /app
+        # glow_dbt está em /app/glow_dbt
+        # profiles está em /app/profiles
+        
+        dbt_working_dir = "/app/glow_dbt"
+        profiles_path = "/app/profiles" # Caminho fixo para o container
+        
+        # 1. Verifica se a pasta do dbt existe
+        if not Path(dbt_working_dir).exists():
+            logger.error(f"Diretório dbt não encontrado em {dbt_working_dir}")
             return False
+
+        # 2. Montamos o comando forçando o diretório de profiles para a raiz do container
+        full_command = command_list + ["--profiles-dir", profiles_path]
         
-        # Executa dbt run
+        logger.info(f"Forçando Profiles para: {profiles_path}")
+        
         result = subprocess.run(
-            ["dbt", "run", "--profiles-dir", "profiles"],
-            cwd=str(dbt_path),
-            capture_output=True,
-            text=True
+            full_command,
+            cwd=dbt_working_dir, # Define onde o comando 'nasce'
+            text=True,
+            capture_output=False 
         )
         
         if result.returncode != 0:
-            logger.error(f"dbt run falhou: {result.stderr}")
+            logger.error(f"❌ {step_name} falhou com código {result.returncode}")
             return False
         
-        logger.info("✓ dbt run concluído com sucesso")
-        logger.info(result.stdout)
+        logger.info(f"✓ {step_name} concluído com sucesso")
         return True
         
-    except FileNotFoundError:
-        logger.error("dbt não está instalado ou não foi encontrado no PATH")
-        return False
     except Exception as e:
-        logger.error(f"Erro ao executar dbt run: {e}")
+        logger.error(f"Erro ao executar {step_name}: {e}")
         return False
-
 
 def main():
     try:
@@ -74,15 +78,9 @@ def main():
         try:
             engine = get_engine()
             logger.info("✓ Conexão com banco de dados estabelecida")
-        except Exception as exc:
-            logger.critical(f"Não foi possível conectar ao banco: {exc}")
-            sys.exit(1)
-
-        try:
             loaded_tables = run_ingestion(engine)
             logger.info(f"✓ {len(loaded_tables)} tabelas carregadas na camada Bronze")
             
-            # Espera o Container ser populado com as tabelas
             for table in loaded_tables:
                 wait_for_table(engine, table)
             logger.info("✓ Todas as tabelas estão disponíveis no banco de dados")
@@ -101,52 +99,67 @@ def main():
         try:
             run_gx_validation()
             logger.info("✓ Validações de qualidade executadas com sucesso")
-            
         except Exception as e:
             logger.error(f"Falha na validação GX: {e}")
             logger.warning("⚠ Pipeline continuando apesar do erro em GX...")
 
         # ─────────────────────────────────────────────────────────────────────────
-        # ETAPA 3: DBT TRANSFORMATIONS (dbt models)
+        # ETAPA 3: DBT TRANSFORMATIONS (Seed & Run)
         # ─────────────────────────────────────────────────────────────────────────
-        try:
-            dbt_success = run_dbt_run()
-            if not dbt_success:
-                logger.warning("⚠ dbt run não foi executado, continuando pipeline...")
-                
-        except Exception as e:
-            logger.error(f"Falha na execução dbt: {e}")
-            logger.warning("⚠ Pipeline continuando apesar do erro em dbt...")
+        logger.info("\n" + "─" * 80)
+        logger.info("ETAPA 3: DBT - Carga de Seeds e Transformações")
+        logger.info("─" * 80)
+
+        # 3.1 dbt seed (Carrega os arquivos CSV da pasta seeds para o banco)
+        seed_success = run_dbt_command(["dbt", "seed"], "dbt seed")
+        if not seed_success:
+            logger.warning("⚠ dbt seed falhou ou não carregou dados.")
+
+        # 3.2 dbt run (Executa os modelos SQL)
+        run_success = run_dbt_command(["dbt", "run"], "dbt run")
+        if not run_success:
+            logger.warning("⚠ dbt run falhou, os modelos podem estar incompletos.")
 
         # ─────────────────────────────────────────────────────────────────────────
         # ETAPA 4: SILVER LAYER (Advanced Analytics)
         # ─────────────────────────────────────────────────────────────────────────
         logger.info("\n" + "─" * 80)
-        logger.info("ETAPA 4: SILVER - Análise Avançada e Perguntas de Negócio")
+        logger.info("ETAPA 4: SILVER - Análise Avançada")
         logger.info("─" * 80)
         
         try:
             silver_main()
-            logger.info("✓ Camada Silver criada com sucesso")
-            
+            logger.info("✓ Camada Silver processada")
         except Exception as e:
             logger.error(f"Falha na camada Silver: {e}")
             sys.exit(1)
 
         # ─────────────────────────────────────────────────────────────────────────
-        # ETAPA 5: GOLD LAYER (Executive/Business Analytics)
+        # ETAPA 5: GOLD LAYER (Business Analytics)
         # ─────────────────────────────────────────────────────────────────────────
         logger.info("\n" + "─" * 80)
-        logger.info("ETAPA 5: GOLD - Camada de Negócio Executiva (Dashboards)")
+        logger.info("ETAPA 5: GOLD - Camada Executiva")
         logger.info("─" * 80)
         
         try:
             gold_main()
-            logger.info("✓ Camada Gold criada com sucesso")
-            
+            logger.info("✓ Camada Gold processada")
         except Exception as e:
             logger.error(f"Falha na camada Gold: {e}")
             sys.exit(1)
+
+        # ─────────────────────────────────────────────────────────────────────────
+        # ETAPA 6: METABASE SETUP
+        # ─────────────────────────────────────────────────────────────────────────
+        logger.info("\n" + "─" * 80)
+        logger.info("ETAPA 6: METABASE - Setup de Dashboards")
+        logger.info("─" * 80)
+        
+        try:
+            setup_metabase()
+            logger.info("✓ Metabase setup concluído")
+        except Exception as e:
+            logger.warning(f"⚠ Setup do Metabase falhou: {e}")
 
         # ─────────────────────────────────────────────────────────────────────────
         # SUCESSO!
@@ -154,17 +167,6 @@ def main():
         logger.info("\n" + "=" * 80)
         logger.info("✓ PIPELINE GLOW & CO CONCLUÍDO COM SUCESSO!")
         logger.info("=" * 80)
-        logger.info("\nAcesso às ferramentas:")
-        logger.info("  • Metabase (Dashboards):    http://localhost:3000")
-        logger.info("  • GX Docs (Validações):     http://localhost:8080")
-        logger.info("  • dbt Docs (Documentação):  http://localhost:8181")
-        logger.info("\nCamadas processadas:")
-        logger.info("  1. Bronze:  ✓ Dados brutos extraídos e carregados")
-        logger.info("  2. GX:      ✓ Validação de qualidade realizada")
-        logger.info("  3. dbt:     ✓ Transformações aplicadas")
-        logger.info("  4. Silver:  ✓ Análises avançadas criadas")
-        logger.info("  5. Gold:    ✓ Dashboards de negócio prontos")
-        logger.info("=" * 80 + "\n")
 
     except Exception as e:
         logger.error(f"Falha crítica no pipeline: {e}", exc_info=True)
