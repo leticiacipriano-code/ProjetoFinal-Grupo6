@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='view') }}
 
 -- mart_unnested_ingredients
 -- Gera uma linha por ingrediente a partir de `mart_price_quartiles` (evita dependência

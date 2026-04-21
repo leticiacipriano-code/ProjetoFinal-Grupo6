@@ -337,7 +337,7 @@ def create_dashboard_benchmark_competitivo(engine):
             COUNT(CASE WHEN price > 80 THEN 1 END) AS produtos_preco_premium,
             ROUND(MIN(price), 2) AS preco_minimo,
             ROUND(MAX(price), 2) AS preco_maximo
-        FROM public.cosmetics_products
+        FROM staging.stg_cosmetics_products
         WHERE brand IS NOT NULL
         GROUP BY brand
         HAVING COUNT(*) >= 2  -- Apenas marcas com 2+ produtos

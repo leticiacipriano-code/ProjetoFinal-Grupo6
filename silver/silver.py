@@ -109,7 +109,7 @@ def create_ingredient_pairs_premium(engine):
     CREATE TABLE silver.ingredient_pairs_premium AS
     WITH cosmetics_preprocessed AS (
         SELECT
-            product_name,
+            name AS product_name,
             brand,
             price,
             rank,
@@ -129,7 +129,7 @@ def create_ingredient_pairs_premium(engine):
                 WHEN rank >= 3.5 THEN 'medium_rank'
                 ELSE 'low_rank'
             END AS rank_category
-        FROM bronze.cosmetics_products
+        FROM staging.stg_cosmetics_products
         WHERE ingredients_list IS NOT NULL
     ),
     
@@ -197,7 +197,7 @@ def create_ingredient_trios_premium(engine):
     CREATE TABLE silver.ingredient_trios_premium AS
     WITH cosmetics_preprocessed AS (
         SELECT
-            product_name,
+            name AS product_name,
             brand,
             price,
             rank,
@@ -217,7 +217,7 @@ def create_ingredient_trios_premium(engine):
                 WHEN rank >= 3.5 THEN 'medium_rank'
                 ELSE 'low_rank'
             END AS rank_category
-        FROM bronze.cosmetics_products
+        FROM staging.stg_cosmetics_products
         WHERE ingredients_list IS NOT NULL
     ),
     
@@ -292,7 +292,7 @@ def create_saturation_analysis(engine):
     CREATE TABLE silver.ingredient_saturation_analysis AS
     WITH cosmetics_analyzed AS (
         SELECT
-            product_name,
+            name AS product_name,
             brand,
             price,
             rank,
@@ -312,7 +312,7 @@ def create_saturation_analysis(engine):
                 WHEN rank >= 3.5 THEN 'medium_rank'
                 ELSE 'low_rank'
             END AS rank_category
-        FROM bronze.cosmetics_products
+        FROM staging.stg_cosmetics_products
         WHERE ingredients_list IS NOT NULL
             AND array_length(string_to_array(TRIM(ingredients_list, '[]'), ', '), 1) > 0
     ),
@@ -404,7 +404,7 @@ def create_controversial_ingredients_impact(engine):
     
     cosmetics_with_flags AS (
         SELECT
-            product_name,
+            name AS product_name,
             brand,
             price,
             rank,
@@ -431,7 +431,7 @@ def create_controversial_ingredients_impact(engine):
             array_length(
                 string_to_array(TRIM(ingredients_list, '[]'), ', '), 1
             ) AS num_ingredients
-        FROM bronze.cosmetics_products
+        FROM staging.stg_cosmetics_products
         WHERE ingredients_list IS NOT NULL
     ),
     

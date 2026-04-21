@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='view') }}
 
 -- mart_ingredient_pairs
 -- Gera pares únicos de ingredientes por produto a partir de `mart_unnested_ingredients`.
