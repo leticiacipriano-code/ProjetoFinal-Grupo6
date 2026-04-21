@@ -1,93 +1,354 @@
-📖 1. Storytelling: 
+# Glow & Co. --- Pipeline de Dados para Beauty Intelligence
 
-A Era da Beleza InteligenteA Glow & Co. está em transição para o modelo de "Beleza Inteligente". Em um mercado saturado, a diferenciação não vem apenas do marketing, mas da evidência científica e eficiência das fórmulas.
+![Python](https://img.shields.io/badge/Python-Data%20Pipeline-blue)
+![dbt](https://img.shields.io/badge/dbt-Transformações-orange)
+![Airflow](https://img.shields.io/badge/Airflow-Orquestração-red)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Banco%20de%20Dados-blue)
+![Docker](https://img.shields.io/badge/Docker-Containerização-blue)
+![Great
+Expectations](https://img.shields.io/badge/Data%20Quality-Great%20Expectations-green)
 
-A Diretoria de Inovação enfrentava um "ponto cego": o desenvolvimento de novos produtos era baseado em tendências subjetivas. Este projeto nasceu para transformar dados brutos de formulações e vendas em insights estratégicos, permitindo que a marca identifique "Gaps" de mercado e crie produtos com alto Rank de satisfação e ROI otimizado.💡
+------------------------------------------------------------------------
 
----
+# 📊 Visão Geral
 
-2. Perguntas de Negócio (Business Questions)
+O **Glow & Co. Beauty Intelligence Pipeline** é uma plataforma de
+**engenharia de dados baseada em ELT**, construída para analisar dados
+de produtos de beleza, ingredientes e vendas.
 
-Para guiar nossa análise, focamos em três pilares estratégicos:
+A pipeline realiza:
 
-Premiumness & Formulação: Qual a correlação entre o preço final e a presença de ativos nobres?
-Objetivo: Listar ingredientes que justificam o ticket alto e mapear substitutos de custo-benefício.
+-   ingestão de datasets de cosméticos e skincare
+-   validação de qualidade dos dados
+-   transformações analíticas
+-   disponibilização de dados para dashboards
 
-Performance por Nicho (Pele Sensível vs. Oleosa): Quais ativos dominam os produtos com Rank > 4.5 para cada tipo de pele?
-Objetivo: Identificar se a Glow & Co. deve focar em nichos específicos onde a concorrência é mal avaliada.
+O projeto demonstra uma arquitetura moderna de **Data Engineering**
+utilizando:
 
-Transparência vs. Marketing (The "Hero" Ingredient): O ingrediente destacado no nome do produto (ex: "Gel de Aloe Vera") é realmente o protagonista na lista técnica (INCI)?
-Objetivo: Mitigar riscos de reputação e garantir transparência na comunicação com o cliente.
+-   Python
+-   PostgreSQL
+-   Great Expectations
+-   dbt
+-   Apache Airflow
+-   Docker
+-   Metabase
 
----
+------------------------------------------------------------------------
 
-🏗 3. Arquitetura do Pipeline (Medallion Architecture)O projeto utiliza o conceito de Medallion Architecture para garantir a qualidade do dado em cada etapa:
+# 🎯 Objetivo do Projeto
 
-Ingestão (Bronze): Scripts Python extraem dados de fontes diversas (Kaggle/CSV) para o PostgreSQL (raw).
+A Glow & Co. busca usar dados para orientar decisões estratégicas no
+desenvolvimento de produtos.
 
-Qualidade (Great Expectations): Validação imediata da camada Raw para evitar "GIGO" (Garbage In, Garbage Out).
+A pipeline permite responder perguntas como:
 
-Transformação (Silver/dbt): Limpeza, padronização e criação de tabelas dimensionais e de fatos com surrogate keys.
+-   Quais **combinações de ingredientes** estão associadas a melhores
+    avaliações?
+-   Existe um **limite de ingredientes** onde a qualidade percebida não
+    aumenta mais?
+-   Como **faixas de preço** influenciam avaliações e vendas?
+-   Existem padrões entre **ingredientes e desempenho de vendas**?
 
-Negócio (Gold): Modelagem de tabelas analíticas otimizadas para consumo direto nos dashboards.
+------------------------------------------------------------------------
 
-Orquestração: Apache Airflow gerencia as dependências e o fluxo.
----
+# 🏗 Arquitetura da Pipeline
 
-🚀 4. Como Executar o Projeto
+A arquitetura segue um modelo **ELT em múltiplas camadas**, separando
+ingestão, validação, transformação e consumo analítico.
 
-4.1 Pré-requisitos
+``` mermaid
+flowchart LR
 
-Docker e Docker Compose instalados.
-Mínimo de 4GB de RAM dedicados ao Docker.
+A[Datasets CSV] --> B[Ingestão Python]
+B --> C[PostgreSQL]
 
-4.2 Instalação e Execução
+C --> D[Validação<br>Great Expectations]
 
-Não é necessário instalar ferramentas individualmente no seu sistema local (como o Airflow pip), pois tudo rodará via Docker containers.
+D --> E[dbt Staging]
+E --> F[dbt Intermediate]
+F --> G[dbt Marts]
 
-Clone o repositório:
-Bashgit clone https://github.com/leticiacipriano-code/ProjetoFinal-Grupo6.git
+G --> H[Metabase Dashboards]
 
-Configure as variáveis de ambiente:
-Crie um arquivo .env na raiz (use o .env.example como base).
+subgraph Orquestração
+I[Apache Airflow]
+end
 
-Suba o ambiente:
-Bashdocker-compose up --build -d
-Este comando iniciará o PostgreSQL, Airflow, dbt, Metabase e Nginx.
+I --> B
+I --> D
+I --> E
+I --> F
+I --> G
+```
 
-Acompanhe o Pipeline:
-Acesse o Airflow e ative a DAG glow_co_main_pipeline.
+------------------------------------------------------------------------
 
----
+# 🧰 Stack Tecnológica
 
-📊 5. Acessos Rápidos (Localhost)
+  Camada           Tecnologia
+  ---------------- --------------------
+  Ingestão         Python
+  Banco de dados   PostgreSQL
+  Validação        Great Expectations
+  Transformações   dbt
+  Orquestração     Apache Airflow
+  Visualização     Metabase
+  Infraestrutura   Docker
 
-| Ferramenta | URL |Credenciais| 
-|------------|-----|-----------|
-| Apache Airflow | localhost:8085 | admin / admin|
-| Metabase (Dashboards) | localhost:3000 | Configuração inicial no primeiro acesso| 
-| Data Docs (GX) | localhost:8080 | Relatórios de Qualidade | 
-|  dbt Docs | localhost:8181 | Linhagem de Dados | 
+------------------------------------------------------------------------
 
----
+# 📂 Estrutura do Projeto
 
-📂 6. Fontes de Dados (Dataset)
+    ProjetoFinal-Grupo6
+    │
+    ├── airflow/
+    │   └── dags/
+    │       └── dag1.py
+    │
+    ├── base/
+    │   ├── cosmetics.csv
+    │   ├── cosmetics_sales_data.csv
+    │   └── skincare_products_clean.csv
+    │
+    ├── bronze/
+    │   └── ingest.py
+    │
+    ├── silver/
+    │   └── silver.py
+    │
+    ├── gold/
+    │   └── gold.py
+    │
+    ├── validation/
+    │   ├── expectation_validation_raw_cosmetics.py
+    │   ├── expectation_validation_raw_products.py
+    │   ├── expectation_validation_raw_sales.py
+    │   └── gx_run.py
+    │
+    ├── glow_dbt/
+    │   ├── models/
+    │   │   ├── staging/
+    │   │   ├── intermediate/
+    │   │   └── marts/
+    │   └── dbt_project.yml
+    │
+    ├── sql/
+    │   └── init.sql
+    │
+    ├── frontend/
+    │   └── metabase_data/
+    │
+    ├── provisioning/
+    │   └── metabase_setup.py
+    │
+    ├── images/
+    ├── docker-compose.yml
+    └── Dockerfile
 
-Para reproduzir este projeto, baixe os arquivos nos links abaixo e coloque-os na pasta /data (se não estiverem versionados):
+------------------------------------------------------------------------
 
-Cosmetics & Skincare Sales 2022Skincare Products Clean DatasetChemical Ingredients INCI List
+# 🔄 Camadas da Pipeline
 
----
+## Base
 
-✅ 7. Checklist de Autoavaliação
+Contém os **datasets originais** utilizados no projeto.
 
-[ ] Storytelling: O domínio e as perguntas de negócio estão claros?
-[ ] Ingestão: Os dados chegam na camada raw via Python?
-[ ] Qualidade: O Great Expectations gera o relatório verde (sucesso)?
-[ ] Transformação: O dbt gera modelos com surrogate keys e macros customizadas?
-[ ] Orquestração: A DAG do Airflow executa sem falhas manuais?
-[ ] Visualização: O dashboard responde se vale a pena lançar o novo produto?
+Exemplos:
 
----
+-   dados de cosméticos
+-   dados de vendas
+-   dados de produtos de skincare
 
-🎨 8. Capturas de Tela (Demonstração)(Insira aqui os prints do seu projeto)Exemplo: Dashboard de Combinações de Ouro
+------------------------------------------------------------------------
+
+## Bronze
+
+Responsável pela **ingestão dos dados brutos** no banco PostgreSQL.
+
+Script principal:
+
+    bronze/ingest.py
+
+------------------------------------------------------------------------
+
+## Silver
+
+Camada de **padronização e limpeza dos dados**.
+
+Script:
+
+    silver/silver.py
+
+------------------------------------------------------------------------
+
+## Gold
+
+Camada final com **dados preparados para análise e BI**.
+
+Script:
+
+    gold/gold.py
+
+------------------------------------------------------------------------
+
+# ✔ Validação de Dados
+
+A qualidade dos dados é verificada com **Great Expectations**.
+
+Localização:
+
+    validation/
+
+As validações incluem:
+
+-   verificação de valores nulos
+-   consistência de colunas
+-   validação de schemas
+-   verificação de integridade
+
+------------------------------------------------------------------------
+
+# 🔧 Transformações Analíticas com dbt
+
+O **dbt (Data Build Tool)** é utilizado para construir modelos
+analíticos.
+
+Estrutura:
+
+### Staging
+
+Padronização inicial das tabelas raw.
+
+Exemplos:
+
+-   stg_cosmetics_products
+-   stg_sales_data
+-   stg_skincare_products
+
+------------------------------------------------------------------------
+
+### Intermediate
+
+Combinação e enriquecimento dos datasets.
+
+Exemplos:
+
+-   análise de pares de ingredientes
+-   unificação de produtos
+-   enriquecimento de dados de vendas
+
+------------------------------------------------------------------------
+
+### Marts
+
+Modelos analíticos finais para BI.
+
+Exemplos:
+
+-   estatísticas de ingredientes
+-   quartis de preço
+-   segmentação de produtos
+-   análises de vendas
+
+------------------------------------------------------------------------
+
+# ⚙ Orquestração com Apache Airflow
+
+A execução da pipeline é controlada por uma **DAG do Airflow**.
+
+Arquivo:
+
+    airflow/dags/dag1.py
+
+## Diagrama da DAG
+
+``` mermaid
+flowchart TD
+
+A[Start Pipeline] --> B[Validação de Dados<br>Great Expectations]
+
+B --> C[dbt run]
+
+C --> D[dbt test]
+
+D --> E[Pipeline Finalizada]
+```
+
+------------------------------------------------------------------------
+
+# 📈 Visualização de Dados
+
+Os dados transformados são explorados através de **dashboards no
+Metabase**.
+
+Localização da configuração:
+
+    frontend/metabase_data
+
+Os dashboards consomem diretamente os **data marts produzidos pelo
+dbt**.
+
+------------------------------------------------------------------------
+
+# 🚀 Executando o Projeto
+
+### 1️⃣ Clonar o repositório
+
+    git clone https://github.com/leticiacipriano-code/ProjetoFinal-Grupo6.git
+
+------------------------------------------------------------------------
+
+### 2️⃣ Subir os containers
+
+    docker-compose up -d
+
+------------------------------------------------------------------------
+
+### 3️⃣ Executar a pipeline
+
+Ativar a DAG no Airflow:
+
+    pipeline_elt_glow_dag
+
+------------------------------------------------------------------------
+
+# 📷 Evidências do Projeto
+
+A pasta:
+
+    images/
+
+contém prints relacionados à execução do dbt, como:
+
+-   dbt seed
+-   dbt run
+-   dbt debug
+
+------------------------------------------------------------------------
+
+# 🔮 Melhorias Futuras
+
+Possíveis evoluções:
+
+-   ingestão incremental
+-   monitoramento e alertas
+-   observabilidade de dados
+-   novos dashboards analíticos
+-   integração com novas fontes de dados
+
+------------------------------------------------------------------------
+
+# 🧠 Conclusão
+
+Este projeto demonstra uma **pipeline moderna de engenharia de dados
+ponta a ponta**, incluindo:
+
+-   ingestão de dados
+-   validação de qualidade
+-   modelagem analítica
+-   orquestração de workflows
+-   disponibilização de dados para análise
+
+A solução permite transformar dados brutos em **insights analíticos para
+apoiar decisões estratégicas da Glow & Co.**
