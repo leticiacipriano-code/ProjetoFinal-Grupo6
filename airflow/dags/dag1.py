@@ -1,40 +1,52 @@
-from airflow import DAG
+from airflow.decorators import dag, task
 from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator
-from great_expectations_provider.operators.great_expectations import GreatExpectationsOperator
 from datetime import datetime, timedelta
+import great_expectations as gx
 
-# Configurações de tratamento de falhas (Retries e Alertas)
+# Configurações padrão
 default_args = {
     'owner': 'glow_project',
     'depends_on_past': False,
-    'start_date': datetime(2024, 1, 1),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1, # Tenta novamente 1 vez antes de falhar
-    'retry_delay': timedelta(minutes=5), # Espera 5 minutos para o retry
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
 }
 
-def alerta_falha():
-    print("ALERTA: Uma tarefa falhou no pipeline ELT!")
+# Callback de falha
+def alerta_falha(context):
+    task_id = context.get('task_instance').task_id
+    print(f"ALERTA: A tarefa {task_id} falhou no pipeline ELT!")
 
-with DAG(
-    'pipeline_elt_glow_dag',
+@dag(
+    dag_id='pipeline_elt_glow_dag_v3',
     default_args=default_args,
-    description='DAG com GX, dbt run e dbt test',
-    schedule_interval=timedelta(days=1),
+    description='DAG com GX em Python puro e dbt otimizada para Airflow 3',
+    start_date=datetime(2024, 1, 1),
+    schedule="@daily",
     catchup=False,
-    on_failure_callback=alerta_falha # Alerta simples de falha
-) as dag:
+    on_failure_callback=alerta_falha,
+    tags=['glow', 'elt', 'qualidade', 'python_gx']
+)
+def glow_pipeline():
 
-    # 1. Validação com Great Expectations
-    gx_validate = GreatExpectationsOperator(
-        task_id='gx_validation',
-        conn_id='postgres_default', # ID da conexão configurada na UI do Airflow
-        data_context_root_dir='/app/gx_docs', # Caminho dentro do container
-        expectation_suite_name='glow_suite',
-        return_json_dict=True
-    )
+    @task
+    def gx_validation_python():
+        """
+        Executa a validação do Great Expectations usando a biblioteca Python diretamente.
+        """
+        # Obtém o contexto de dados do diretório configurado
+        context = gx.get_context(context_root_dir='/app/gx_docs')
+        
+        # Executa o checkpoint definido anteriormente
+        result = context.run_checkpoint(checkpoint_name='glow_checkpoint')
+        
+        # Valida se o resultado foi bem sucedido
+        if not result["success"]:
+            # Você pode extrair detalhes específicos do erro aqui
+            raise ValueError(f"Falha na validação de dados do GX. Verifique os logs do Checkpoint.")
+        
+        return "Dados validados com sucesso!"
 
     # 2. Execução do dbt (Transformação)
     dbt_run = BashOperator(
@@ -48,5 +60,10 @@ with DAG(
         bash_command='cd /usr/app/dbt_project && dbt test --profiles-dir /root/.dbt'
     )
 
-    # Definindo a dependência explícita
-    gx_validate >> dbt_run >> dbt_test
+    # Definindo o fluxo com a nova tarefa Python
+    validacao = gx_validation_python()
+    
+    validacao >> dbt_run >> dbt_test
+
+# Instanciação da DAG
+glow_pipeline()

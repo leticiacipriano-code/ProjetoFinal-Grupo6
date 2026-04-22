@@ -38,12 +38,19 @@ def run_gx_validation():
             except Exception as e:
                 logger.warning(f"Erro ao registrar validação {val.name}: {e}")
 
-        # 4. Build data docs (leve, sem executar validações)
-        logger.info("Gerando Data Docs...")
-        context.build_data_docs()
+        # 4. Definir e Rodar o Checkpoint (Gera os resultados para o relatório)
+        checkpoint = gx.Checkpoint(
+            name="glow_checkpoint",
+            validation_definitions=registered_validations,
+            result_format="SUMMARY"
+        )
+        context.checkpoints.add_or_update(checkpoint)
         
-        logger.info("✓ Validações de qualidade configuradas com sucesso")
-        logger.info("Data Docs disponíveis em: /app/gx_docs/uncommitted/data_docs/local_site/index.html")
+        logger.info("🚀 Executando validações reais no banco de dados...")
+        result = checkpoint.run() # Executa a query SQL e testa as regras
+        
+        # 5. Agora sim, build data docs (Com os resultados do 'run')
+        context.build_data_docs()
         
     except Exception as e:
         logger.error(f"Erro ao configurar GX: {e}")

@@ -16,7 +16,7 @@ Responsabilidade:
   6. Dashboard_Recomendacoes_Inovacao: Sugestões de produtos
 
 Execução:
-  python gold/gold.py
+  python gold_metabase/gold.py
 
 Variáveis de ambiente (via .env):
   POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER,
@@ -271,7 +271,7 @@ def create_dashboard_combinacoes_ouro(engine):
     """
     Combinações de ingredientes que impulsionam
     produtos premium com alto Rank.
-    Usa dados de: public.mart_pair_stats, public.mart_ingredient_pairs
+    Usa dados de: marts.mart_pair_stats, marts.mart_ingredient_pairs
     Pronto para: Recomendações de formulação
     """
     
@@ -291,7 +291,7 @@ def create_dashboard_combinacoes_ouro(engine):
                 100.0 * (mps.avg_rank / 5.0),
                 2
             ) AS pct_high_rank
-        FROM public.mart_pair_stats mps
+        FROM glow_marts.mart_pair_stats mps
         WHERE mps.avg_rank >= 4.0
             AND mps.volume_produtos >= 2
         ORDER BY mps.avg_rank DESC, mps.volume_produtos DESC
@@ -326,7 +326,7 @@ def create_dashboard_saturation_roi(engine):
     """
     Curva de custo-benefício: quanto investir em
     ingredientes para máximo retorno em Rank.
-    Usa dados de: public.mart_unified_products
+    Usa dados de: marts.mart_unified_products
     Pronto para: Otimização de formulações
     """
     
@@ -352,7 +352,7 @@ def create_dashboard_saturation_roi(engine):
                 ),
                 2
             ) AS price_per_ingredient
-        FROM public.mart_unified_products mup
+        FROM glow_marts.mart_unified_products mup
         WHERE mup.ingredients_list IS NOT NULL
     ),
     
@@ -427,7 +427,7 @@ def create_dashboard_controverso_por_pele(engine):
     """
     Impacto de ingredientes alergênicos/polêmicos
     em diferentes tipos de pele.
-    Usa dados de: public.mart_unified_products
+    Usa dados de: marts.mart_unified_products
     Pronto para: Análise de risco e oportunidade
     """
     
@@ -457,7 +457,7 @@ def create_dashboard_controverso_por_pele(engine):
                     OR LOWER(mup.ingredients_list) ~ 'formaldehyde'
                 ) THEN 1 ELSE 0
             END AS has_controversial_ingredient
-        FROM public.mart_unified_products mup
+        FROM glow_marts.mart_unified_products mup
         WHERE mup.ingredients_list IS NOT NULL
     ),
     
@@ -534,7 +534,7 @@ def create_dashboard_premium_whitespace(engine):
     """
     Combinações de ouro que NÃO existem em produtos
     de ticket médio (oportunidade de inovação).
-    Usa dados de: public.mart_pair_stats
+    Usa dados de: marts.mart_pair_stats
     Pronto para: Identificar nichos inexplorados
     """
     
@@ -558,7 +558,7 @@ def create_dashboard_premium_whitespace(engine):
                      OVER (PARTITION BY mps.ing_1, mps.ing_2) < 1 THEN 'Premium Exclusivo'
                 ELSE 'Disponível'
             END AS segmento
-        FROM public.mart_pair_stats mps
+        FROM glow_marts.mart_pair_stats mps
         WHERE mps.avg_rank >= 4.0
             AND mps.volume_produtos >= 2
     )
@@ -600,7 +600,7 @@ def create_dashboard_benchmark_competitivo(engine):
     """
     Análise comparativa de marcas e posicionamento
     de produtos no mercado.
-    Usa dados de: public.mart_unified_products
+    Usa dados de: marts.mart_unified_products
     Pronto para: Análise competitiva
     """
     
@@ -620,7 +620,7 @@ def create_dashboard_benchmark_competitivo(engine):
             COUNT(CASE WHEN mup.price > 80 THEN 1 END) AS produtos_preco_premium,
             ROUND(MIN(mup.price), 2) AS preco_minimo,
             ROUND(MAX(mup.price), 2) AS preco_maximo
-        FROM public.mart_unified_products mup
+        FROM glow_marts.mart_unified_products mup
         WHERE mup.brand IS NOT NULL
             AND mup.brand != ''
         GROUP BY mup.brand

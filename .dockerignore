@@ -16,3 +16,4 @@ __pycache__/
 # Ignorar logs e bancos locais do Airflow
 airflow/*.db
 airflow/*.log
+airflow/logs/
