@@ -45,7 +45,7 @@ services:
     volumes:
       - ./frontend/metabase_data:/metabase-data
     ports:
-      - "3000:3000"
+      - "3001:3000"
     networks:
       - metabase_network
 

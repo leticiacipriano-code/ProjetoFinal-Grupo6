@@ -19,12 +19,13 @@ Variáveis de ambiente (via .env):
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pathlib import Path
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 import logging
 import os
 import sys
 import pandas as pd
 import time
+import socket
 
 
 # ─────────────────────────────────────────────
@@ -46,13 +47,21 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 load_dotenv()
 
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+# Detecta se está rodando dentro de um container ou localmente
+IS_DOCKER = os.path.exists("/.dockerenv") or os.getenv("RUNNING_IN_DOCKER") == "true"
+
+# Configuração de host: usa o hostname do container se em Docker
+POSTGRES_HOST = os.getenv(
+    "POSTGRES_HOST",
+    "glow_postgres" if IS_DOCKER else "localhost"
+)
+POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
 POSTGRES_USER = os.getenv("POSTGRES_USER", "glow")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "glow1234")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "glow_db")
 BASE_DATA_PATH = Path(os.getenv("BASE_DATA_PATH", "./base"))
 
+# Constrói URL de conexão
 DB_URL = (
     f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
@@ -106,15 +115,42 @@ RISK_INGREDIENTS = [
 # 5. Funções auxiliares
 # ─────────────────────────────────────────────
 
-def get_engine():
-    """Cria e retorna um engine SQLAlchemy com pool de conexões."""
+def get_engine(retries=5, delay=2):
+    """
+    Cria e retorna um engine SQLAlchemy com pool de conexões.
+    Implementa retry em caso de falha de conexão (útil em Docker durante inicialização).
+    
+    Args:
+        retries: número de tentativas de conexão
+        delay: segundos entre tentativas
+    """
     logger.info(f"Conectando ao banco: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
-    engine = create_engine(DB_URL, pool_pre_ping=True)
-    # Testa a conexão antes de retornar
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    logger.info("Conexão estabelecida com sucesso.")
-    return engine
+    
+    for attempt in range(1, retries + 1):
+        try:
+            engine = create_engine(
+                DB_URL,
+                pool_pre_ping=True,
+                connect_args={"connect_timeout": 10}
+            )
+            
+            # Testa a conexão
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            
+            logger.info(f"✓ Conexão estabelecida com sucesso (tentativa {attempt}/{retries})")
+            return engine
+            
+        except Exception as e:
+            if attempt < retries:
+                logger.warning(f"✗ Falha na conexão (tentativa {attempt}/{retries}): {e}")
+                logger.info(f"  Aguardando {delay}s antes de tentar novamente...")
+                time.sleep(delay)
+            else:
+                logger.error(f"✗ Falha após {retries} tentativas:")
+                logger.error(f"  Host: {POSTGRES_HOST}:{POSTGRES_PORT}")
+                logger.error(f"  Erro: {e}")
+                raise
 
 
 def ensure_raw_schema(engine):
@@ -237,31 +273,50 @@ def ensure_ingestion_log(engine):
 
 
 def wait_for_table(engine, table_name, schema="raw", timeout=60):
-    """Espera a criação da tabela no container do Postgres para que os outros serviços possam encontrá-las lá."""
-    start = time.time()
-
+    """
+    Aguarda a criação/disponibilidade da tabela no PostgreSQL.
+    Essencial quando tabelas são criadas de forma assíncrona ou
+    quando o schema ainda está sendo propagado em ambientes containerizados.
+    
+    Args:
+        engine: SQLAlchemy engine
+        table_name: nome da tabela a verificar
+        schema: nome do schema (padrão: 'raw')
+        timeout: tempo máximo de espera em segundos
+    
+    Levanta TimeoutError se a tabela não for criada no timeout.
+    """
+    start_time = time.time()
+    
+    logger.info(f"Aguardando criação de {schema}.{table_name} (timeout: {timeout}s)...")
+    
     while True:
+        elapsed = time.time() - start_time
+        
+        if elapsed > timeout:
+            logger.error(
+                f"✗ Timeout ao aguardar {schema}.{table_name} "
+                f"(após {elapsed:.1f}s)"
+            )
+            raise TimeoutError(
+                f"Tabela {schema}.{table_name} não foi criada em {timeout}s"
+            )
         
         try:
-            with engine.connect() as conn:
-                result = conn.execute(
-                    text(
-                        f"""
-                    SELECT 1
-                    FROM information_schema.tables
-                    WHERE table_schema = '{schema}'
-                    AND table_name = '{table_name}'
-                    """))
-                if result.fetchone():
-                    print(f"Table {schema}.{table_name} is ready!")
-                    return
+            inspector = inspect(engine)
+            tables = inspector.get_table_names(schema=schema)
+            
+            if table_name in tables:
+                logger.info(
+                    f"✓ Tabela {schema}.{table_name} está pronta "
+                    f"(detectada em {elapsed:.1f}s)"
+                )
+                return True
         
         except Exception as e:
-            print(f"Waiting for table... ({e})")
-
-        if time.time() - start > timeout:
-            raise TimeoutError(f"Timeout waiting for table {schema}.{table_name}")
-
+            logger.debug(f"Verificação de tabela falhou (tentando novamente): {e}")
+        
+        # Aguarda 2 segundos antes da próxima tentativa
         time.sleep(2)
 
 
@@ -272,84 +327,174 @@ def wait_for_table(engine, table_name, schema="raw", timeout=60):
 def run_ingestion(engine=None):
     """
     Executa o pipeline EL completo:
-      1. Conecta ao PostgreSQL
+      1. Conecta ao PostgreSQL (com retry automático em Docker)
       2. Garante schema raw e tabela de log
-      3. Para cada fonte no catálogo: lê → normaliza → carrega
+      3. Para cada fonte no catálogo: lê → normaliza → carrega → confirma
       4. Carrega tabela de referência de ingredientes de risco
-      5. Imprime resumo final
+      5. Valida que os dados estão acessíveis para transformações dbt
+      6. Imprime resumo final
     """
-    logger.info("=" * 60)
-    logger.info("Glow & Co. — Ingestão Raw iniciada")
-    logger.info(f"Base path: {BASE_DATA_PATH.resolve()}")
-    logger.info("=" * 60)
+    logger.info("=" * 70)
+    logger.info("🚀 Glow & Co. — Pipeline EL (Extract & Load) iniciado")
+    logger.info(f"📁 Base path: {BASE_DATA_PATH.resolve()}")
+    logger.info(f"� Modo de execução: {'🐳 DOCKER' if IS_DOCKER else '🖥️  LOCAL'}")
+    logger.info(f"�🐘 PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}")
+    logger.info("=" * 70)
 
     start_time = datetime.now()
     summary = {"success": 0, "failed": 0, "skipped": 0}
 
-    # Se a engine não for passada - criar
+    # Se a engine não for passada - criar (com retry automático)
     if engine is None:
-        engine = get_engine()
+        try:
+            engine = get_engine(retries=5, delay=2)
+        except Exception as e:
+            logger.error("✗ Falha ao conectar ao PostgreSQL - abortando ingestão")
+            sys.exit(1)
 
+    # Garante schemas e tabelas de suporte
     ensure_raw_schema(engine)
     ensure_ingestion_log(engine)
+    
+    logger.info(f"✓ Schema e tabelas de suporte verificados")
 
     loaded_tables = []
 
-    # ── Itera sobre o catálogo de fontes ──
+    # ────────────────────────────────────────────────────────────────────
+    # FASE 1: Ingestão das fontes de dados brutos
+    # ────────────────────────────────────────────────────────────────────
+    logger.info("\n" + "─" * 70)
+    logger.info("FASE 1: Ingestão de Fontes de Dados Brutos")
+    logger.info("─" * 70)
+
     for source in SOURCE_CATALOG:
         logger.info(f"\n▶ Processando: {source['file']}")
-        logger.info(f"  Tabela destino: raw.{source['table']}")
-        logger.info(f"  Descrição: {source['description']}")
+        logger.info(f"  └─ Tabela destino: raw.{source['table']}")
+        logger.info(f"  └─ Descrição: {source['description']}")
 
+        # Lê o arquivo de origem
         df = read_source_file(source)
 
         if df is None:
+            logger.warning("  ✗ Arquivo não encontrado - pulando")
             summary["skipped"] += 1
-            log_ingestion(engine, source["table"], source["file"], 0, "SKIPPED")
+            log_ingestion(engine, source["table"], source["file"], 0, "SKIPPED", 
+                         "Arquivo não encontrado")
             continue
 
         try:
+            # Normaliza e adiciona metadados
             df = normalize_columns(df)
             df = add_metadata(df, source["file"])
+            
+            # Carrega dados
             rows = load_to_postgres(df, source["table"], engine)
+            
+            # Aguarda confirmação da tabela (importante em ambientes Docker)
+            wait_for_table(engine, source["table"], schema="raw", timeout=30)
+            
+            # Valida dados carregados
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(f"SELECT COUNT(*) as cnt FROM raw.{source['table']}")
+                )
+                actual_count = result.scalar()
+                
+                if actual_count == rows:
+                    logger.info(f"  ✓ Carregadas {rows:,} linhas em raw.{source['table']}")
+                    logger.info(f"  ✓ Validação OK ({actual_count:,} linhas confirmadas)")
+                else:
+                    logger.warning(
+                        f"  ⚠ Discrepância: esperado {rows}, "
+                        f"encontrado {actual_count}"
+                    )
+            
             loaded_tables.append(source["table"])
-
-            logger.info(f"  ✓ Carregadas {rows:,} linhas em raw.{source['table']}")
             log_ingestion(engine, source["table"], source["file"], rows, "SUCCESS")
             summary["success"] += 1
 
         except Exception as exc:
-            logger.error(f"  ✗ Erro ao carregar '{source['table']}': {exc}")
-            log_ingestion(engine, source["table"], source["file"], 0, "FAILED", str(exc))
+            logger.error(f"  ✗ Erro ao carregar: {exc}")
+            log_ingestion(engine, source["table"], source["file"], 0, "FAILED", 
+                         str(exc))
             summary["failed"] += 1
 
-    # ── Tabela de referência de ingredientes de risco ──
+    # ────────────────────────────────────────────────────────────────────
+    # FASE 2: Carregamento de Tabelas de Referência
+    # ────────────────────────────────────────────────────────────────────
+    logger.info("\n" + "─" * 70)
+    logger.info("FASE 2: Carregamento de Tabelas de Referência")
+    logger.info("─" * 70)
+    
     logger.info("\n▶ Carregando tabela de referência: ingredientes de risco")
     try:
         df_risk = pd.DataFrame(RISK_INGREDIENTS)
         df_risk = add_metadata(df_risk, "in-code reference")
         rows = load_to_postgres(df_risk, "ref_risk_ingredients", engine)
+        
+        # Aguarda confirmação
+        wait_for_table(engine, "ref_risk_ingredients", schema="raw", timeout=30)
+        
         logger.info(f"  ✓ Carregadas {rows:,} linhas em raw.ref_risk_ingredients")
-        log_ingestion(engine, "ref_risk_ingredients", "in-code reference", rows, "SUCCESS")
+        log_ingestion(engine, "ref_risk_ingredients", "in-code reference", rows, 
+                     "SUCCESS")
         summary["success"] += 1
+        
     except Exception as exc:
-        logger.error(f"  ✗ Erro ao carregar ref_risk_ingredients: {exc}")
+        logger.error(f"  ✗ Erro ao carregar ingredientes de risco: {exc}")
+        log_ingestion(engine, "ref_risk_ingredients", "in-code reference", 0, 
+                     "FAILED", str(exc))
         summary["failed"] += 1
 
-    # ── Resumo ──
-    elapsed = (datetime.now() - start_time).total_seconds()
-    logger.info("\n" + "=" * 60)
-    logger.info("Resumo da ingestão:")
-    logger.info(f"  ✓ Sucesso : {summary['success']}")
-    logger.info(f"  ✗ Falha   : {summary['failed']}")
-    logger.info(f"  – Pulados : {summary['skipped']}")
-    logger.info(f"  Tempo total: {elapsed:.1f}s")
-    logger.info("=" * 60)
+    # ────────────────────────────────────────────────────────────────────
+    # FASE 3: Validação Final
+    # ────────────────────────────────────────────────────────────────────
+    logger.info("\n" + "─" * 70)
+    logger.info("FASE 3: Validação Final")
+    logger.info("─" * 70)
+    
+    logger.info("\nVerificando acessibilidade das tabelas para transformações dbt:")
+    try:
+        inspector = inspect(engine)
+        raw_tables = inspector.get_table_names(schema="raw")
+        
+        for table in loaded_tables + ["ref_risk_ingredients"]:
+            if table in raw_tables:
+                with engine.connect() as conn:
+                    result = conn.execute(
+                        text(f"SELECT COUNT(*) as cnt FROM raw.{table}")
+                    )
+                    count = result.scalar()
+                    logger.info(f"  ✓ raw.{table}: {count:,} linhas [OK para dbt]")
+            else:
+                logger.warning(f"  ✗ raw.{table}: não encontrada")
+    
+    except Exception as e:
+        logger.error(f"  ✗ Erro ao validar tabelas: {e}")
 
+    # ────────────────────────────────────────────────────────────────────
+    # RESUMO FINAL
+    # ────────────────────────────────────────────────────────────────────
+    elapsed = (datetime.now() - start_time).total_seconds()
+    
+    logger.info("\n" + "=" * 70)
+    logger.info("📊 RESUMO DA INGESTÃO")
+    logger.info("=" * 70)
+    logger.info(f"  ✓ Sucesso  : {summary['success']}")
+    logger.info(f"  ✗ Falha    : {summary['failed']}")
+    logger.info(f"  – Pulados  : {summary['skipped']}")
+    logger.info(f"⏱  Tempo total: {elapsed:.1f}s")
+    logger.info("=" * 70)
+    
     if summary["failed"] > 0:
+        logger.error("\n❌ Pipeline finalizado com erros")
         sys.exit(1)
     else:
-        return loaded_tables
+        logger.info("\n✅ Pipeline EL concluído com sucesso!")
+        logger.info(f"📊 Total de tabelas criadas: {summary['success']}")
+        logger.info(f"🎯 Dados prontos para transformações dbt em: raw.*")
+        
+    return loaded_tables
 
 
 if __name__ == "__main__":
