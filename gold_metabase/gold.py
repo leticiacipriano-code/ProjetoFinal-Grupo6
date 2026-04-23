@@ -39,13 +39,28 @@ import time
 # ─────────────────────────────────────────────
 # 1. Configuração de Logging
 # ─────────────────────────────────────────────
+import os
+from pathlib import Path
+
+# Detectar ambiente de execução
+is_docker = os.path.exists("/.dockerenv")
+if is_docker:
+    log_dir = "/app/gold_metabase"
+    log_file = "/app/gold_metabase/gold.log"
+else:
+    log_dir = "gold_metabase"
+    log_file = "gold_metabase/gold.log"
+
+# Criar diretório de logs se não existir
+Path(log_dir).mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("gold_metabase/gold.log", mode="a", encoding="utf-8"),
+        logging.FileHandler(log_file, mode="a", encoding="utf-8"),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -55,7 +70,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 load_dotenv()
 
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "postgres")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "glow")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "glow1234")
@@ -243,8 +258,32 @@ class MetabaseAPI:
 # ─────────────────────────────────────────────
 
 def get_engine():
-    """Cria conexão com o banco de dados PostgreSQL."""
-    return create_engine(DB_URL, echo=False)
+    """Cria conexão com o banco de dados PostgreSQL com retry."""
+    max_retries = 5
+    retry_delay = 5
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Tentativa {attempt}/{max_retries} de conexão ao banco de dados...")
+            engine = create_engine(DB_URL, echo=False, connect_args={'connect_timeout': 10})
+            
+            # Testa a conexão
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                conn.commit()
+            
+            logger.info("✓ Conexão com banco de dados estabelecida com sucesso")
+            return engine
+            
+        except Exception as e:
+            logger.warning(f"Erro na tentativa {attempt}: {e}")
+            
+            if attempt < max_retries:
+                logger.info(f"Aguardando {retry_delay}s antes da próxima tentativa...")
+                time.sleep(retry_delay)
+            else:
+                logger.error("✗ Falha ao conectar ao banco de dados após todas as tentativas")
+                raise
 
 
 def create_gold_schema(engine):
@@ -291,7 +330,7 @@ def create_dashboard_combinacoes_ouro(engine):
                 100.0 * (mps.avg_rank / 5.0),
                 2
             ) AS pct_high_rank
-        FROM glow_marts.mart_pair_stats mps
+        FROM marts.mart_pair_stats mps
         WHERE mps.avg_rank >= 4.0
             AND mps.volume_produtos >= 2
         ORDER BY mps.avg_rank DESC, mps.volume_produtos DESC
@@ -352,7 +391,7 @@ def create_dashboard_saturation_roi(engine):
                 ),
                 2
             ) AS price_per_ingredient
-        FROM glow_marts.mart_unified_products mup
+        FROM marts.mart_unified_products mup
         WHERE mup.ingredients_list IS NOT NULL
     ),
     
@@ -457,7 +496,7 @@ def create_dashboard_controverso_por_pele(engine):
                     OR LOWER(mup.ingredients_list) ~ 'formaldehyde'
                 ) THEN 1 ELSE 0
             END AS has_controversial_ingredient
-        FROM glow_marts.mart_unified_products mup
+        FROM marts.mart_unified_products mup
         WHERE mup.ingredients_list IS NOT NULL
     ),
     
@@ -558,7 +597,7 @@ def create_dashboard_premium_whitespace(engine):
                      OVER (PARTITION BY mps.ing_1, mps.ing_2) < 1 THEN 'Premium Exclusivo'
                 ELSE 'Disponível'
             END AS segmento
-        FROM glow_marts.mart_pair_stats mps
+        FROM marts.mart_pair_stats mps
         WHERE mps.avg_rank >= 4.0
             AND mps.volume_produtos >= 2
     )
@@ -620,7 +659,7 @@ def create_dashboard_benchmark_competitivo(engine):
             COUNT(CASE WHEN mup.price > 80 THEN 1 END) AS produtos_preco_premium,
             ROUND(MIN(mup.price), 2) AS preco_minimo,
             ROUND(MAX(mup.price), 2) AS preco_maximo
-        FROM glow_marts.mart_unified_products mup
+        FROM marts.mart_unified_products mup
         WHERE mup.brand IS NOT NULL
             AND mup.brand != ''
         GROUP BY mup.brand

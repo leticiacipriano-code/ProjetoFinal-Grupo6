@@ -167,24 +167,24 @@ def main():
         logger.info("    - intermediate.int_* (dados enriquecidos)")
         logger.info("    - public.mart_* (modelos otimizados para análise)")
 
-        # # ─────────────────────────────────────────────────────────────────────────
-        # # ETAPA 4: GOLD LAYER - Camada Executiva e Metabase
-        # # ─────────────────────────────────────────────────────────────────────────
-        # logger.info("\n" + "▼" * 80)
-        # logger.info("ETAPA 4 - GOLD: Camada Executiva (Dashboards Metabase)")
-        # logger.info("▼" * 80)
+        # ─────────────────────────────────────────────────────────────────────────
+        # ETAPA 4: GOLD LAYER - Camada Executiva e Metabase
+        # ─────────────────────────────────────────────────────────────────────────
+        logger.info("\n" + "▼" * 80)
+        logger.info("ETAPA 4 - GOLD: Camada Executiva (Dashboards Metabase)")
+        logger.info("▼" * 80)
         
-        # try:
-        #     logger.info("\n Criando tabelas gold e dashboards Metabase...")
-        #     gold_main()
-        #     logger.info("✓ Camada Gold processada com sucesso")
-        #     logger.info("  Recursos criados:")
-        #     logger.info("    - gold.dashboard_* (6 tabelas de negócio)")
-        #     logger.info("    - Metabase: Dashboard centralizado com 6 visualizações")
+        try:
+            logger.info("\n Criando tabelas gold e dashboards Metabase...")
+            gold_main()
+            logger.info("✓ Camada Gold processada com sucesso")
+            logger.info("  Recursos criados:")
+            logger.info("    - gold.dashboard_* (6 tabelas de negócio)")
+            logger.info("    - Metabase: Dashboard centralizado com 6 visualizações")
             
-        # except Exception as e:
-        #     logger.error(f" FALHA NA ETAPA GOLD: {e}", exc_info=True)
-        #     sys.exit(1)
+        except Exception as e:
+            logger.error(f" FALHA NA ETAPA GOLD: {e}", exc_info=True)
+            sys.exit(1)
 
         # ─────────────────────────────────────────────────────────────────────────
         # SUCESSO COMPLETO

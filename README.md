@@ -23,23 +23,24 @@ Objetivo: Mitigar riscos de reputação e garantir transparência na comunicaç�
 
 🏗 3. Arquitetura do Pipeline (Medallion Architecture)O projeto utiliza o conceito de Medallion Architecture para garantir a qualidade do dado em cada etapa:
 
-Ingestão (Bronze): Scripts Python extraem dados de fontes diversas (Kaggle/CSV) para o PostgreSQL (raw).
+O pipeline foi desenhado para ser resiliente, utilizando Docker para isolamento e Airflow para orquestração.
 
-Qualidade (Great Expectations): Validação imediata da camada Raw para evitar "GIGO" (Garbage In, Garbage Out).
 
-Transformação (Silver/dbt): Limpeza, padronização e criação de tabelas dimensionais e de fatos com surrogate keys.
 
-Negócio (Gold): Modelagem de tabelas analíticas otimizadas para consumo direto nos dashboards.
+- **Ingestão (Bronze):** Scripts Python (`ingest.py`) consomem CSV/XLS e carregam no PostgreSQL (Schema `raw`).
+- **Qualidade (GX):** Validação rigorosa com **Great Expectations** antes da transformação.
+- **Transformação (Silver/Gold):** O **dbt** realiza a modelagem dimensional e tabelas de fatos.
+- **Visualização (Analytics):** **Metabase** conectado à camada Gold para dashboards executivos.
+- **Servidor de Documentação:** **Nginx** servindo os relatórios de qualidade (Data Docs) e documentação do dbt.
 
-Orquestração: Apache Airflow gerencia as dependências e o fluxo.
 ---
 
 🚀 4. Como Executar o Projeto
 
 4.1 Pré-requisitos
 
-Docker e Docker Compose instalados.
-Mínimo de 4GB de RAM dedicados ao Docker.
+- Docker e Docker Compose instalados.
+- Mínimo de 4GB de RAM dedicados ao Docker.
 
 4.2 Instalação e Execução
 
@@ -49,10 +50,11 @@ Clone o repositório:
 Bashgit clone https://github.com/leticiacipriano-code/ProjetoFinal-Grupo6.git
 
 Configure as variáveis de ambiente:
+cp .env.example .env
 Crie um arquivo .env na raiz (use o .env.example como base).
 
 Suba o ambiente:
-Bashdocker-compose up --build -d
+docker-compose up --build -d
 Este comando iniciará o PostgreSQL, Airflow, dbt, Metabase e Nginx.
 
 Acompanhe o Pipeline:
@@ -65,7 +67,7 @@ Acesse o Airflow e ative a DAG glow_co_main_pipeline.
 | Ferramenta | URL |Credenciais| 
 |------------|-----|-----------|
 | Apache Airflow | localhost:8085 | admin / admin|
-| Metabase (Dashboards) | localhost:3000 | Configuração inicial no primeiro acesso| 
+| Metabase (Dashboards) | localhost:3001 | Configuração inicial no primeiro acesso| 
 | Data Docs (GX) | localhost:8080 | Relatórios de Qualidade | 
 |  dbt Docs | localhost:8181 | Linhagem de Dados | 
 

@@ -11,10 +11,21 @@ logger = logging.getLogger(__name__)
 def run_gx_validation():
     """Executa as validações do Great Expectations (versão leve para performance)."""
     try:
+        import os
+        
         logger.info("Iniciando configuração de Great Expectations...")
         
-        # Alteração: Usando um diretório padrão para o contexto de arquivo
-        context = gx.get_context(mode="file", project_root_dir="/app/gx_docs")
+        # Detecta ambiente e define diretório
+        is_docker = os.path.exists("/.dockerenv")
+        gx_root = "/app/gx_docs" if is_docker else "gx_docs"
+        
+        logger.info(f"Usando GX root: {gx_root}")
+        
+        # Usa contexto de arquivo com suppress_io_ops para evitar scaffolding
+        context = gx.get_context(
+            project_root_dir=gx_root,
+            suppress_io_ops=True
+        )
 
         # 1. Definição do batch e suites (sem executar - apenas setup)
         batch_def_cosmetics, suite_cosmetics = create_gx_expectationSuite(context=context, asset="raw_cosmetics", table="cosmetics_products")
