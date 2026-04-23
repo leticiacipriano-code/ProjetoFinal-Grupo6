@@ -60,6 +60,7 @@ Este comando iniciará o PostgreSQL, Airflow, dbt, Metabase e Nginx.
 Acompanhe o Pipeline:
 Acesse o Airflow e ative a DAG glow_co_main_pipeline.
 
+
 ---
 
 📊 5. Acessos Rápidos (Localhost)
