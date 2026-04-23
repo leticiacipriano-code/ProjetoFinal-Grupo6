@@ -47,7 +47,7 @@ O pipeline foi desenhado para ser resiliente, utilizando Docker para isolamento 
 Não é necessário instalar ferramentas individualmente no seu sistema local (como o Airflow pip), pois tudo rodará via Docker containers.
 
 Clone o repositório:
-Bashgit clone https://github.com/leticiacipriano-code/ProjetoFinal-Grupo6.git
+git clone https://github.com/leticiacipriano-code/ProjetoFinal-Grupo6.git
 
 Configure as variáveis de ambiente:
 cp .env.example .env
